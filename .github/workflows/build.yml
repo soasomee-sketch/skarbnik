@@ -1,0 +1,28 @@
+# Budowa Skarbnik.exe na GitHub Actions (bez lokalnych narzędzi).
+# Wynik trafia do RELEASES (nie do artefaktów) – omija limit miejsca na artefakty.
+name: Build Windows EXE
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write            # potrzebne do utworzenia release
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Zależności
+        run: pip install -r requirements.txt pyinstaller
+      - name: Szybki test logiki (przed budową .exe)
+        run: python -c "import model; d=model.przyklad(); p=model.podsumowanie(d); assert p['liczba']==8; print('OK', p['saldo'])"
+      - name: Budowa .exe (jeden plik, bez okna konsoli)
+        run: pyinstaller --onefile --windowed --name Skarbnik skarbnik.py
+      - name: Publikacja w Releases
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "v${{ github.run_number }}" dist/Skarbnik.exe --title "Skarbnik v${{ github.run_number }}" --notes "Program dla skarbnika klasowego (Windows, bez MS Office)"
